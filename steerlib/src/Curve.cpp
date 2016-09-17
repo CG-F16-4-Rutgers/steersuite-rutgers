@@ -112,17 +112,9 @@ bool Curve::calculatePoint(Point& outputPoint, float time)
 // Check Roboustness
 bool Curve::checkRobust()
 {
-	//================DELETE THIS PART AND THEN START CODING===================
-	static bool flag = false;
-	if (!flag)
-	{
-		std::cerr << "ERROR>>>>Member function checkRobust is not implemented!" << std::endl;
-		flag = true;
-	}
-	//=========================================================================
+	if (controlPoints.size() < 2) { return false; }     // Curve needs at least two points
 
-
-	return true;
+	else return true;
 }
 
 // Find the current time interval (i.e. index of the next control point to follow according to current time)
