@@ -16,7 +16,7 @@ using namespace Util;
 
 
 // Function declarations 
-bool sortByControlPointsByTime(const CurvePoint& p1, const CurvePoint& p2);
+bool sortControlPointsByTime(const CurvePoint& p1, const CurvePoint& p2);
 
 
 
