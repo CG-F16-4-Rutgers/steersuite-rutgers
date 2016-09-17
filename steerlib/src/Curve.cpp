@@ -14,6 +14,12 @@
 
 using namespace Util;
 
+
+// Function declarations 
+bool sortByControlPointsByTime(const CurvePoint& p1, const CurvePoint& p2);
+
+
+
 Curve::Curve(const CurvePoint& startPoint, int curveType) : type(curveType)
 {
 	controlPoints.push_back(startPoint);
@@ -65,16 +71,12 @@ void Curve::drawCurve(Color curveColor, float curveThickness, int window)
 // Sort controlPoints vector in ascending order: min-first
 void Curve::sortControlPoints()
 {
-	//================DELETE THIS PART AND THEN START CODING===================
-	static bool flag = false;
-	if (!flag)
-	{
-		std::cerr << "ERROR>>>>Member function sortControlPoints is not implemented!" << std::endl;
-		flag = true;
-	}
-	//=========================================================================
+	sort(controlPoints.begin(), controlPoints.end(), sortControlPointsByTime);
+}
 
-	return;
+bool sortControlPointsByTime(const CurvePoint& p1, const CurvePoint& p2)
+{
+	return p1.time < p2.time;
 }
 
 // Calculate the position on curve corresponding to the given time, outputPoint is the resulting position
