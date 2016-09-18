@@ -18,7 +18,6 @@ using namespace Util;
 // Function declarations 
 bool sortControlPointsByTime(const CurvePoint& p1, const CurvePoint& p2);
 
-
 Curve::Curve(const CurvePoint& startPoint, int curveType) : type(curveType)
 {
 	controlPoints.push_back(startPoint);
