@@ -16,8 +16,7 @@ using namespace Util;
 
 
 // Function declarations 
-bool sortByControlPointsByTime(const CurvePoint& p1, const CurvePoint& p2);
-
+bool sortControlPointsByTime(const CurvePoint& p1, const CurvePoint& p2);
 
 
 Curve::Curve(const CurvePoint& startPoint, int curveType) : type(curveType)
@@ -50,20 +49,15 @@ void Curve::addControlPoints(const std::vector<CurvePoint>& inputPoints)
 void Curve::drawCurve(Color curveColor, float curveThickness, int window)
 {
 #ifdef ENABLE_GUI
-
-	//================DELETE THIS PART AND THEN START CODING===================
-	static bool flag = false;
-	if (!flag)
-	{
-		std::cerr << "ERROR>>>>Member function drawCurve is not implemented!" << std::endl;
-		flag = true;
-	}
-	//=========================================================================
-
-	// Robustness: make sure there is at least two control point: start and end points
 	// Move on the curve from t=0 to t=finalPoint, using window as step size, and linearly interpolate the curve points
 	// Note that you must draw the whole curve at each frame, that means connecting line segments between each two points on the curve
 	
+	// Draw nothing if there are less than two control points
+	if (!checkRobust())
+	{
+		return;  
+	}
+
 	return;
 #endif
 }
@@ -120,35 +114,45 @@ bool Curve::checkRobust()
 // Find the current time interval (i.e. index of the next control point to follow according to current time)
 bool Curve::findTimeInterval(unsigned int& nextPoint, float time)
 {
-	//================DELETE THIS PART AND THEN START CODING===================
-	static bool flag = false;
-	if (!flag)
+	// if time is greater than the last control point's time then we've reached past the end
+	if (time > controlPoints.back().time) 
 	{
-		std::cerr << "ERROR>>>>Member function findTimeInterval is not implemented!" << std::endl;
-		flag = true;
+		return false;
 	}
-	//=========================================================================
 
+	// Set nextPoint to index of next control point
+	for (unsigned int i = 0; i < controlPoints.size(); ++i)
+	{
+		if (controlPoints[i].time > time) 
+		{
+			nextPoint = i;
+			break;
+		}
+	}
 
-	return true;
+	return true; // when nextPoint is found
 }
 
+
+// current
 // Implement Hermite curve
 Point Curve::useHermiteCurve(const unsigned int nextPoint, const float time)
 {
 	Point newPosition;
-	float normalTime, intervalTime;
+	float normalTime(time);
 
-	//================DELETE THIS PART AND THEN START CODING===================
-	static bool flag = false;
-	if (!flag)
-	{
-		std::cerr << "ERROR>>>>Member function useHermiteCurve is not implemented!" << std::endl;
-		flag = true;
-	}
-	//=========================================================================
+	unsigned int prevPointIdx = nextPoint - 1;
+
+	// Normalize time from prevPoint to nextPoint
+	float intervalTime = (normalTime - controlPoints[prevPointIdx].time) / (controlPoints[nextPoint].time - controlPoints[prevPointIdx].time);   
 
 	// Calculate position at t = time on Hermite curve
+	// position = at^3 + bt^2 + ct + d
+
+	// Calculate new x, y, and z components of newPosition
+
+
+
 
 	// Return result
 	return newPosition;
