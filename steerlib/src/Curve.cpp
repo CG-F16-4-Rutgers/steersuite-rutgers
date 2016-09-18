@@ -57,14 +57,14 @@ void Curve::drawCurve(Color curveColor, float curveThickness, int window)
 
 	Point startPoint, nextPoint;
 	for (int i = 0; i < controlPoints.size(); ++i) 
-	{		
+	{	
 		if (i == controlPoints.size() - 1) // Draw the from current position to last point -- NOT WORKING PROPERLY
 		{
 			DrawLib::glColor(curveColor);
 			DrawLib::drawLine(startPoint, controlPoints[i].position, curveColor, curveThickness);
 			break;
 		}
-
+		
 		startPoint = controlPoints[i].position;		
 
 		for (int j = (controlPoints[i]).time; j <= (controlPoints[i + 1]).time; j += window)   // Step through controlPoints by using window as time
@@ -133,7 +133,7 @@ bool Curve::checkRobust()
 bool Curve::findTimeInterval(unsigned int& nextPoint, float time)
 {
 	// if time is greater than the last control point's time then we've reached past the end
-	if (time > controlPoints.back().time) 
+	if (time >= controlPoints.back().time)
 	{
 		return false;
 	}
@@ -186,14 +186,14 @@ Point Curve::useHermiteCurve(const unsigned int nextPoint, const float time)
 	Vector c = prevPointTangent;
 	Point  d = prevPointPos;
 	
-	Point newPosition = d + a*pow(elapsedTime, 3) + b*pow(elapsedTime, 2) + c*elapsedTime;
+	Point newPosition = d + a*pow(elapsedTime, 3) + b*pow(elapsedTime, 2) + c*elapsedTime;	
 	*/
 
 	// Hermite Blending function
-	Point a = prevPointPos * (2 * pow(intervalTime, 3) - 3 * pow(intervalTime, 2) + 1);
-	Point b = nextPointPos * (-2 * pow(intervalTime, 3) + 3 * pow(intervalTime, 2));
-	Vector c = prevPointTangent * ((pow(elapsedTime, 3) / pow(nextPointTime - prevPointTime, 2) + -2 * pow(elapsedTime, 2) / (nextPointTime - prevPointTime) + elapsedTime));
-	Vector d = nextPointTangent * ((pow(elapsedTime, 3) / pow(nextPointTime - prevPointTime, 2)) - (pow(elapsedTime, 2) / (nextPointTime - prevPointTime)));
+	Point a = prevPointPos * (2 * pow(intervalTime, 3) - (3 * pow(intervalTime, 2)) + 1);
+	Point b = nextPointPos * (-2 * pow(intervalTime, 3) + (3 * pow(intervalTime, 2)));
+	Vector c = prevPointTangent * ( ( pow(elapsedTime, 3) / pow(nextPointTime - prevPointTime, 2) ) + ( -2 * pow(elapsedTime, 2) / (nextPointTime - prevPointTime)) + elapsedTime );
+	Vector d = nextPointTangent * ( ( pow(elapsedTime, 3) / pow(nextPointTime - prevPointTime, 2) ) - ( pow(elapsedTime, 2) / (nextPointTime - prevPointTime) ) );
 
 	Point newPosition = a + b + c + d;
 
