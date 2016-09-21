@@ -17,6 +17,7 @@ using namespace Util;
 
 // Function declarations 
 bool sortControlPointsByTime(const CurvePoint& p1, const CurvePoint& p2);
+bool ifSameTime(const CurvePoint& p1, const CurvePoint& p2);
 
 Curve::Curve(const CurvePoint& startPoint, int curveType) : type(curveType)
 {
@@ -58,7 +59,7 @@ void Curve::drawCurve(Color curveColor, float curveThickness, int window)
 	Point startPoint, nextPoint;
 	for (int i = 0; i < controlPoints.size(); ++i) 
 	{
-		if (i == controlPoints.size() - 1) // Draw the from current position to last point -- NOT WORKING PROPERLY
+		if (i == controlPoints.size() - 1) // Draw the from current position to last point
 		{
 			DrawLib::glColor(curveColor);
 			DrawLib::drawLine(startPoint, controlPoints[i].position, curveColor, curveThickness);
@@ -84,6 +85,13 @@ void Curve::drawCurve(Color curveColor, float curveThickness, int window)
 void Curve::sortControlPoints()
 {
 	std::sort(controlPoints.begin(), controlPoints.end(), sortControlPointsByTime);
+	controlPoints.erase(std::unique(controlPoints.begin(), controlPoints.end(), ifSameTime), controlPoints.end()); // Remove if we encounter a new CP with the same time as a prior CP
+}
+
+// Sort helper functions
+bool ifSameTime(const CurvePoint& p1, const CurvePoint& p2)
+{
+	return p1.time == p2.time;
 }
 
 bool sortControlPointsByTime(const CurvePoint& p1, const CurvePoint& p2)
@@ -163,10 +171,10 @@ Point Curve::useHermiteCurve(const unsigned int nextPoint, const float time)
 
 	unsigned int prevPoint = nextPoint - 1;
 
-	Point prevPointPos = controlPoints[prevPoint].position;      // Position of previous control point
-	Point nextPointPos = controlPoints[nextPoint].position;      // Position of next control point
+	Point prevPointPos = controlPoints[prevPoint].position;          // Position of previous control point
+	Point nextPointPos = controlPoints[nextPoint].position;          // Position of next control point
 	Vector prevPointTangent = controlPoints[nextPoint - 1].tangent;  // Tangent of previous control point
-	Vector nextPointTangent = controlPoints[nextPoint].tangent;  // Tangent of next control point
+	Vector nextPointTangent = controlPoints[nextPoint].tangent;      // Tangent of next control point
 
 	// Time variables
 	float prevPointTime = controlPoints[prevPoint].time;  // t0
@@ -174,27 +182,7 @@ Point Curve::useHermiteCurve(const unsigned int nextPoint, const float time)
 	float elapsedTime = time - prevPointTime;             // t
 	float intervalTime = (time - prevPointTime) / (nextPointTime - prevPointTime); 	// Normalize time from prevPoint to nextPoint (e.g (t - t0) / (t1 - t0) )
 
-	/*
-    //generic hermite function: does not interpolate
-	Vector a = -2.0f*(nextPointPos - prevPointPos) + prevPointTangent + nextPointTangent;
-	Vector b = 3.0f*(nextPointPos - prevPointPos) - 2.0f*prevPointTangent - nextPointTangent;
-	Vector c = prevPointTangent;
-	Point  d = prevPointPos;
-
-	Point newPosition = d + a*pow(intervalTime, 3) + b*pow(intervalTime, 2) + c*intervalTime;  
-	*/
-
-	/*
-	// Non-expanded form of interpolation function
-	Vector a = (-2.0f*(nextPointPos - prevPointPos) / pow(nextPointTime - prevPointTime, 3)) + ((prevPointTangent + nextPointTangent) / pow(nextPointTime - prevPointTime, 2));
-	Vector b = (3.0f*(nextPointPos - prevPointPos) / pow(nextPointTime - prevPointTime, 2)) - ((2.0f*prevPointTangent + nextPointTangent) / (nextPointTime - prevPointTime));
-	Vector c = prevPointTangent;
-	Point  d = prevPointPos;
-	
-	Point newPosition = d + a*pow(elapsedTime, 3) + b*pow(elapsedTime, 2) + c*elapsedTime;	
-	*/
-
-	// Hermite Blending function
+	// Hermite Blending function (expanded all terms)
 	Point a = prevPointPos * (2 * pow(intervalTime, 3) - (3 * pow(intervalTime, 2)) + 1);
 	Point b = nextPointPos * (-2 * pow(intervalTime, 3) + (3 * pow(intervalTime, 2)));
 	Vector c = prevPointTangent * ( ( pow(elapsedTime, 3) / pow(nextPointTime - prevPointTime, 2) ) + ( -2 * pow(elapsedTime, 2) / (nextPointTime - prevPointTime) ) + elapsedTime );
@@ -202,33 +190,13 @@ Point Curve::useHermiteCurve(const unsigned int nextPoint, const float time)
 
 	Point newPosition = a + b + c + d;
 	
-	/*
-	float range = nextPointTime - prevPointTime;
-	Point  a = prevPointPos     * ( ( 2 * pow(elapsedTime, 3) / pow(range, 3) ) - (3 * pow(elapsedTime, 2) / pow(range, 2) ) + 1);
-	Point  b = nextPointPos     * ( (-2 * pow(elapsedTime, 3) / pow(range, 3) ) + (3 * pow(elapsedTime, 2) / pow(range, 2) ) );
-	Vector c = prevPointTangent * ( (pow(elapsedTime, 3) / pow(range, 2) ) + (-2 * pow(elapsedTime, 2) / range) + elapsedTime);
-	Vector d = nextPointTangent * ( (pow(elapsedTime, 3) / pow(range, 2) ) - (pow(elapsedTime, 2) / (range) ) );
-
-	Point newPosition = a + b + c + d;
-	*/
-
-
 	// Return result
 	return newPosition;
-}
-
-void computeTangent(Vector& si, Vector& sn)
-{
-	
 }
 
 // Implement Catmull-Rom curve
 Point Curve::useCatmullCurve(const unsigned int nextPoint, const float time)
 {
-	if (time < controlPoints[nextPoint - 1].time || time > controlPoints[nextPoint].time)
-	{
-		return Point(0, 0, 0);
-	}
 
 	unsigned int prevPoint = nextPoint - 1;
 
@@ -243,9 +211,7 @@ Point Curve::useCatmullCurve(const unsigned int nextPoint, const float time)
 	float elapsedTime = time - prevPointTime;             // t
 	float intervalTime = (time - prevPointTime) / (nextPointTime - prevPointTime); 	// Normalize time from prevPoint to nextPoint (e.g (t - t0) / (t1 - t0) )
 
-
-	Vector s0, si, sn;
-
+	Vector si, sn;
 	// Set start boundary control point tangent
 	if (nextPoint == 1)
 	{
@@ -287,7 +253,8 @@ Point Curve::useCatmullCurve(const unsigned int nextPoint, const float time)
 		Point y_1 = controlPoints[size - 2].position;       // y_n-2
 		Point y_2 = controlPoints[size - 1].position;       // y_n-1
 
-		sn = ((t_2 - t_0) / (t_2 - t_1) * (y_1 - y_0) / (t_1 - t_0) - (t_1 - t_0) / (t_2 - t_1) * (y_2 - y_0) / (t_2 - t_0));
+		//sn = ((t_2 - t_0) / (t_2 - t_1) * (y_1 - y_0) / (t_1 - t_0) - (t_1 - t_0) / (t_2 - t_1) * (y_2 - y_0) / (t_2 - t_0)); // incorrect blend for end point, should be symmetrical to start boundary blend function
+		sn = ((t_2 - t_0) / (t_1 - t_0) * (y_2 - y_1) / (t_2 - t_1) - (t_2 - t_1) / (t_1 - t_0) * (y_2 - y_0) / (t_2 - t_0));
 	}
 	// Set next control point tangent to be one point ahead
 	else
@@ -303,6 +270,7 @@ Point Curve::useCatmullCurve(const unsigned int nextPoint, const float time)
 		sn = ((t_1 - t_0) / (t_2 - t_0) * (y_2 - y_1) / (t_2 - t_1)) + ((t_2 - t_1) / (t_2 - t_0) * (y_1 - y_0) / (t_1 - t_0));
 	}
 
+	// Blending function (expanded all terms)
 	Point a = prevPointPos * (2 * pow(intervalTime, 3) - (3 * pow(intervalTime, 2)) + 1);
 	Point b = nextPointPos * (-2 * pow(intervalTime, 3) + (3 * pow(intervalTime, 2)));
 	Vector c = si * ( ( pow(elapsedTime, 3) / pow(nextPointTime - prevPointTime, 2) ) + ( -2 * pow(elapsedTime, 2) / (nextPointTime - prevPointTime) ) + elapsedTime );
