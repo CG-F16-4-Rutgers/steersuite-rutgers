@@ -5,11 +5,25 @@
 
 using namespace Util;
 
+// Edges contain an index, edge distance, and edge normal, which is used to find MTV in EPA
+struct Edge
+{
+public:
+	int index;
+	float distance;
+	Vector normal;
+};
+
 // Helper declarations
 Util::Vector getCenter(const std::vector<Util::Vector> &shape);
 Util::Vector getFarthestPointInDirection(const std::vector<Util::Vector> &shape, const Util::Vector &direction);
 Util::Vector getSupport(const std::vector<Util::Vector> &shapeA, const std::vector<Util::Vector> &shapeB, const Util::Vector &direction);
 Util::Vector getNewDirection(const std::vector<Util::Vector> &simplex);
+bool containsOrigin(std::vector<Vector> &simplex, Vector &direction);
+
+// EPA Helpers
+void getEPA(float &penetrationDepth, Vector &penetrationVector, std::vector<Vector> &simplex, const std::vector<Vector> &shapeA, const std::vector<Vector> &shapeB);
+Edge getClosestEdge(std::vector<Vector> &simplex);
 
 SteerLib::GJK_EPA::GJK_EPA()
 {
@@ -20,31 +34,38 @@ SteerLib::GJK_EPA::GJK_EPA()
 // Look at the GJK_EPA.h header file for documentation and instructions
 bool SteerLib::GJK_EPA::intersect(float& return_penetration_depth, Util::Vector& return_penetration_vector, const std::vector<Util::Vector>& _shapeA, const std::vector<Util::Vector>& _shapeB)
 {
-	return false; // There is no collision
-}
-
-// Construct simplex and find one that contains the origin
-bool constructSimplex(const std::vector<Vector> shapeA, const std::vector<Vector> shapeB)
-{
-	std::vector<Vector> simplex;  // Simplex that stores Minkowski points
-
-	// Get the direction by A - B
-	Vector d = getCenter(shapeA) - getCenter(shapeB);
-	simplex.push_back(getSupport(shapeA, shapeB, d));
+	std::vector<Vector> simplex;  // Simplex that stores Minkowski points								 
+	Vector d = getCenter(_shapeA) - getCenter(_shapeB);  // Get the direction by A - B
+	simplex.push_back(getSupport(_shapeA, _shapeB, d));
 	d = -d; // negate d
 
 	while (true)
 	{
-		simplex.push_back(getSupport(shapeA, shapeB, d));
-		// Checkthat last simplex point added was passed the origin
+		simplex.push_back(getSupport(_shapeA, _shapeB, d));
+		// Check that last simplex point added was passed the origin
 		if (dot(simplex.back(), d) <= 0)
 		{
+			// The last simplex point has not gone past the origin using the current direction
 			return false;
 		}
+
+		else // current simplex could potentially contain origin
+		{
+			// Check if simplex does contain origin
+			if (containsOrigin(simplex, d))
+			{
+				// Since we found the simplex containing origin, we perform EPA to get the penetration information
+				getEPA(return_penetration_depth, return_penetration_vector, simplex, _shapeA, _shapeB);
+				return true; // Objects intersect
+			}
+			else
+			{
+				// Find a new direction that points to origin
+				d = getNewDirection(simplex);
+			}
+		}
 	}
-
 }
-
 
 // Get shape center using average method 
 Vector getCenter(const std::vector<Vector> &shape)
@@ -109,4 +130,111 @@ Vector getNewDirection(const std::vector<Vector> &simplex)
 	// Get new direction by taking cross product
 	Vector d = cross(cross(ab, a0), ab);
 	return d;
+}
+
+// Check if the simplex contains origin
+bool containsOrigin(std::vector<Vector> &simplex, Vector &direction)
+{
+	// b at index 0 
+	// c at index 1
+	// a at index 2 (or back)
+
+	Vector a = simplex.back();
+	Vector a0 = Vector(0, 0, 0) - a;
+
+	// Triangle
+	if (simplex.size() == 3)
+	{
+		Vector b = simplex[0];
+		Vector c = simplex[1];
+		Vector ab = b - a;     // a points to b
+		Vector ac = c - a;     // a points to c
+
+		// compute normals on ab and ac
+		Vector perp_ab = cross(cross(ac, ab), ab); // perp_ab = (ab x ac) x ac
+		Vector perp_ac = cross(cross(ab, ac), ac); // perp_ac = (ac x ab) x ab
+
+		if (dot(perp_ab, a0) > 0)
+		{
+			simplex.erase(simplex.begin() + 1); // erase point c
+			direction = perp_ab;
+		}
+		else
+		{
+			if (dot(perp_ac, a0) > 0)
+			{
+				simplex.erase(simplex.begin());
+				direction = perp_ac;
+			}
+			else
+			{
+				return true;
+			}
+		}
+	}
+	else // Dealing with line segment instead of a triangle, so find new direction to get simplex point c
+	{		
+		Vector b = simplex[0];
+		Vector ab = b - a;
+		Vector perp_ab = cross(cross(ab, a0), ab);
+		direction = perp_ab;
+	}
+	return false;
+}
+
+void getEPA(float &penetrationDepth, Vector &penetrationVector, std::vector<Vector> &simplex, const std::vector<Vector> &shapeA, const std::vector<Vector> &shapeB)
+{
+	while (true)
+	{
+		Edge edge = getClosestEdge(simplex); 
+		Vector support = getSupport(shapeA, shapeB, edge.normal); // Get new support using edge normal
+
+		float distance = dot(support, edge.normal);
+		if (distance - edge.distance < 0.0001) // if less than some tolerance then we can assume that we can no longer expand simplex
+		{
+			penetrationVector = edge.normal;
+			penetrationDepth = distance;
+			break;
+		}		
+		else
+		{
+			// Insert new point into simplex
+			simplex.insert(simplex.begin() + edge.index, support);
+		}
+	}
+}
+
+Edge getClosestEdge(std::vector<Vector> &simplex)
+{
+	Edge edge;
+	edge.distance = 0;
+
+	float closestDistance = FLT_MAX; // Start with the furthest float distance
+
+	for (int i = 0; i < simplex.size(); ++i)
+	{
+		// Get the next simplex point to use 
+		int j = i + 1;
+		if (j == simplex.size()) // If we've reached the last simplex point, direct j back to beginning
+		{
+			j = 0;
+		}
+		
+		Vector a = simplex[i];
+		Vector b = simplex[j];
+
+		Vector edgeVector = b - a; // Get the edge vector 
+		Vector normal = cross(cross(edgeVector, a), edgeVector);
+		normal = normalize(normal); // normalize the edge normal
+
+		float distance = dot(normal, a); // Distance from origin to edge
+		
+		if (distance < closestDistance)
+		{
+			edge.index = j;
+			edge.distance = distance;
+			edge.normal = normal;
+		}
+	}
+	return edge;
 }
