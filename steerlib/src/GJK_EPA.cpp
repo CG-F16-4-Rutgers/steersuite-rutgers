@@ -1,5 +1,6 @@
 #include <vector> 
 #include <algorithm> 
+#include <iostream>
 
 #include "obstacles/GJK_EPA.h"
 
@@ -38,6 +39,20 @@ bool SteerLib::GJK_EPA::intersect(float& return_penetration_depth, Util::Vector&
 	Vector d = getCenter(_shapeA) - getCenter(_shapeB);  // Get the direction by A - B
 	simplex.push_back(getSupport(_shapeA, _shapeB, d));
 	d = -d; // negate d
+
+	// Print polygon points of shape A and shape B
+	for (int i = 0; i < _shapeA.size(); ++i)
+	{
+		std::cout << "A " << i << " | ";
+		std::cout << _shapeA[i].x << " " << _shapeA[i].y << " " << _shapeA[i].z << std::endl;
+	}
+
+	for (int i = 0; i < _shapeB.size(); ++i)
+	{
+		std::cout << "B " << i << " | ";
+		std::cout << _shapeB[i].x << " " << _shapeB[i].y << " " << _shapeB[i].z << std::endl;
+	}
+
 
 	while (true)
 	{
@@ -135,8 +150,8 @@ Vector getNewDirection(const std::vector<Vector> &simplex)
 // Check if the simplex contains origin
 bool containsOrigin(std::vector<Vector> &simplex, Vector &direction)
 {
-	// b at index 0 
-	// c at index 1
+	// c at index 0
+	// b at index 1 
 	// a at index 2 (or back)
 
 	Vector a = simplex.back();
@@ -145,25 +160,25 @@ bool containsOrigin(std::vector<Vector> &simplex, Vector &direction)
 	// Triangle
 	if (simplex.size() == 3)
 	{
-		Vector b = simplex[0];
-		Vector c = simplex[1];
+		Vector c = simplex[0];
+		Vector b = simplex[1];
 		Vector ab = b - a;     // a points to b
 		Vector ac = c - a;     // a points to c
 
 		// compute normals on ab and ac
-		Vector perp_ab = cross(cross(ac, ab), ab); // perp_ab = (ab x ac) x ac
-		Vector perp_ac = cross(cross(ab, ac), ac); // perp_ac = (ac x ab) x ab
+		Vector perp_ab = cross(cross(ac, ab), ab); // perp_ab = (ac x ab) x ab
+		Vector perp_ac = cross(cross(ab, ac), ac); // perp_ac = (ab x ac) x ac
 
 		if (dot(perp_ab, a0) > 0)
 		{
-			simplex.erase(simplex.begin() + 1); // erase point c
+			simplex.erase(simplex.begin()); // erase point c
 			direction = perp_ab;
 		}
 		else
 		{
 			if (dot(perp_ac, a0) > 0)
 			{
-				simplex.erase(simplex.begin());
+				simplex.erase(simplex.begin() + 1); // erase point b
 				direction = perp_ac;
 			}
 			else
@@ -189,8 +204,8 @@ void getEPA(float &penetrationDepth, Vector &penetrationVector, std::vector<Vect
 		Edge edge = getClosestEdge(simplex); 
 		Vector support = getSupport(shapeA, shapeB, edge.normal); // Get new support using edge normal
 
-		float distance = dot(support, edge.normal);
-		if (distance - edge.distance < 0.0001) // if less than some tolerance then we can assume that we can no longer expand simplex
+		float distance = fabs(dot(support, edge.normal));
+		if (distance - edge.distance <= 0.0001) // if less than some tolerance then we can assume that we can no longer expand simplex
 		{
 			penetrationVector = edge.normal;
 			penetrationDepth = distance;
@@ -207,7 +222,6 @@ void getEPA(float &penetrationDepth, Vector &penetrationVector, std::vector<Vect
 Edge getClosestEdge(std::vector<Vector> &simplex)
 {
 	Edge edge;
-	edge.distance = 0;
 
 	float closestDistance = FLT_MAX; // Start with the furthest float distance
 
@@ -227,7 +241,7 @@ Edge getClosestEdge(std::vector<Vector> &simplex)
 		Vector normal = cross(cross(edgeVector, a), edgeVector);
 		normal = normalize(normal); // normalize the edge normal
 
-		float distance = dot(normal, a); // Distance from origin to edge
+		float distance = fabs(dot(normal, a)); // Distance from origin to edge
 		
 		if (distance < closestDistance)
 		{
