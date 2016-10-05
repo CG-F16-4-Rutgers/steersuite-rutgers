@@ -40,6 +40,7 @@ bool SteerLib::GJK_EPA::intersect(float& return_penetration_depth, Util::Vector&
 	simplex.push_back(getSupport(_shapeA, _shapeB, d));
 	d = -d; // negate d
 
+	/*
 	// Print polygon points of shape A and shape B
 	for (int i = 0; i < _shapeA.size(); ++i)
 	{
@@ -52,7 +53,7 @@ bool SteerLib::GJK_EPA::intersect(float& return_penetration_depth, Util::Vector&
 		std::cout << "B " << i << " | ";
 		std::cout << _shapeB[i].x << " " << _shapeB[i].y << " " << _shapeB[i].z << std::endl;
 	}
-
+	*/
 
 	while (true)
 	{
