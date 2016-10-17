@@ -405,7 +405,7 @@ project "simpleAI"
 	 configuration { "linux" }
 		buildoptions("-std=c++0x -ggdb" )	
 	
-project "sfAI"
+project "socialForcesAI"
 	language "C++"
 	kind "SharedLib"
 	includedirs { 
@@ -487,7 +487,7 @@ project "pprAI"
 		"util"
 	}
 	
-    buildoptions("-std=c++0x -ggdb" )	
+    buildoptions("-std=c++0x -ggdb" )
     
     
 project "curveAI"
