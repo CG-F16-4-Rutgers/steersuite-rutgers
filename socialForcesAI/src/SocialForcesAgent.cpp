@@ -145,6 +145,12 @@ void SocialForcesAgent::reset(const SteerLib::AgentInitialConditions & initialCo
 	{
 		_goalQueue.pop();
 	}
+	// Set agent name
+	name = initialConditions.name;
+
+	// Clear any possible old data left in prior runs
+	seekTargetsSet.clear();
+	fleeTargetsSet.clear();
 
 	// iterate over the sequence of goals specified by the initial conditions.
 	for (unsigned int i=0; i<initialConditions.goals.size(); i++) {
@@ -165,8 +171,18 @@ void SocialForcesAgent::reset(const SteerLib::AgentInitialConditions & initialCo
 				_goalQueue.push(initialConditions.goals[i]);
 			}
 		}
-		else {
-			throw Util::GenericException("Unsupported goal type; SocialForcesAgent only supports GOAL_TYPE_SEEK_STATIC_TARGET and GOAL_TYPE_AXIS_ALIGNED_BOX_GOAL.");
+		else if (initialConditions.goals[i].goalType == SteerLib::GOAL_TYPE_FLEE_DYNAMIC_TARGET)
+		{
+			seekTargetsSet.insert(initialConditions.goals[i].targetName);
+
+		}
+		else if (initialConditions.goals[i].goalType == SteerLib::GOAL_TYPE_SEEK_DYNAMIC_TARGET)
+		{
+			fleeTargetsSet.insert(initialConditions.goals[i].targetName);
+		}
+		else 
+		{
+			throw Util::GenericException("Unsupported goal type; SocialForcesAgent only supports GOAL_TYPE_SEEK_STATIC_TARGET, GOAL_TYPE_SEEK_DYNAMIC_TARGET, GOAL_TYPE_FLEE_DYNAMIC_TARGET, and GOAL_TYPE_AXIS_ALIGNED_BOX_GOAL.");
 		}
 	}
 
@@ -217,11 +233,72 @@ void SocialForcesAgent::reset(const SteerLib::AgentInitialConditions & initialCo
 	assert(_radius != 0.0f);
 }
 
-
-void SocialForcesAgent::calcNextStep(float dt)
+// Computes all external forces such as wall, proximity, repulsion
+Util::Vector SocialForcesAgent::calculateExternalForce(float dt)
 {
 
+	// ========= Goal Forces ================
+	Util::Vector prefForce = Vector(0, 0, 0);
+
+	// Only have a preferred force to goal when there are still goals left to go to
+	if (_goalQueue.size() > 0) 
+	{
+		SteerLib::AgentGoalInfo goalInfo = _goalQueue.front();
+		Util::Vector goalDirection;
+
+		if (!_midTermPath.empty() && (!this->hasLineOfSightTo(goalInfo.targetLocation)))
+		{
+			if (reachedCurrentWaypoint())
+			{
+				this->updateMidTermPath();
+			}
+
+			this->updateLocalTarget();
+			goalDirection = normalize(_currentLocalTarget - position());
+		}
+
+		else 
+		{
+			prefForce = (((goalDirection * PERFERED_SPEED) - velocity()) / (_SocialForcesParams.sf_acceleration / dt)); //assumption here
+		}
+	}
+	// ======================================
+
+
+
+	// ========= Repulsion Forces ===========
+	Util::Vector repulsionForce = calcRepulsionForce(dt);
+	if ( repulsionForce.x != repulsionForce.x)
+	{
+		std::cout << "Found some nan" << std::endl;
+		repulsionForce = velocity();
+		// throw GenericException("SocialForces numerical issue");
+	}
+	// ======================================
+
+
+
+	// ======= Proximity Forces ==============
+	Util::Vector proximityForce = calcProximityForce(dt);
+// #define _DEBUG_ 1
+#ifdef _DEBUG_
+	std::cout << "agent" << id() << " repulsion force " << repulsionForce << std::endl;
+	std::cout << "agent" << id() << " proximity force " << proximityForce << std::endl;
+	std::cout << "agent" << id() << " pref force " << prefForce << std::endl;
+#endif
+	// _velocity = _newVelocity;
+	int alpha=1;
+	if ( repulsionForce.length() > 0.0)
+	{
+		alpha=0;
+	}
+	// ======================================
+
+
+	// Return cummulative forces acting on agent
+	return prefForce + repulsionForce + proximityForce;
 }
+
 
 std::pair<float, Util::Point> minimum_distance(Util::Point l1, Util::Point l2, Util::Point p)
 {
@@ -762,6 +839,139 @@ void SocialForcesAgent::computeNeighbors()
 	}
 }*/
 
+// Checks if there is another goal to head to
+void SocialForcesAgent::updateGoal()
+{
+	if (_goalQueue.size() <= 0)   // No goals in queue remaining
+	{
+		disable();
+		return;
+	}
+
+	SteerLib::AgentGoalInfo goalInfo = _goalQueue.front();
+
+	// Check if the goal is within the bounds or if goal is overlap withing the agent's current position
+	if ((goalInfo.targetLocation - position()).length < radius() * GOAL_THRESHOLD_MULTIPLIER
+		|| goalInfo.goalType == GOAL_THRESHOLD_MULTIPLIER
+		&& Util::boxOverlapsCircle2D(goalInfo.targetRegion.xmin, goalInfo.targetRegion.xmax, goalInfo.targetRegion.zmin, goalInfo.targetRegion.zmax, this->position(), this->radius))
+	{
+
+		_goalQueue.pop(); // Remove current goal
+
+		if (_goalQueue.size() > 0)
+		{
+			// Set agent to new goal with velocity as goal direction
+			Util::Vector goalDirection = _goalQueue.front().targetLocation - this->_position;
+			_prefVelocity = goalDirection;
+		}
+	}
+}
+
+
+// Computes all forces and calculates the next velocity via their accelerations
+void SocialForcesAgent::calcNextStep(float dt, Util::Vector accel)
+{
+	// Increment velocity
+	_velocity = velocity() + (accel * dt); // v = vo + at
+	_velocity = clamp(velocity(), _SocialForcesParams.sf_max_speed);
+	_velocity.y = 0.0f;
+}
+
+
+Util::Vector SocialForcesAgent::pursue(float dt)
+{
+	std::set<SteerLib::SpatialDatabaseItemPtr> _neighbors; 
+	int totalPursue = 0;
+
+	// Get neighboring radius
+	getSimulationEngine()->getSpatialDatabase()->getItemsInRange(_neighbors,
+		_position.x - (this->_radius + _SocialForcesParams.sf_query_radius),
+		_position.x + (this->_radius + _SocialForcesParams.sf_query_radius),
+		_position.z - (this->_radius + _SocialForcesParams.sf_query_radius),
+		_position.z + (this->_radius + _SocialForcesParams.sf_query_radius),
+		dynamic_cast<SteerLib::SpatialDatabaseItemPtr>(this));
+
+	Util::Vector outputAcceleration = Vector(0, 0, 0);
+
+	// Anticipate the target's future position and flee accordingly
+	std::set<SteerLib::SpatialDatabaseItemPtr>::iterator neighbor = _neighbors.begin();
+	for (; neighbor != _neighbors.end(); ++neighbor)
+	{
+		// Check if the neighbor within the radius is an agent
+		if ((*neighbor)->isAgent())
+		{
+			SocialForcesAgent* neighborAgent = dynamic_cast<SocialForcesAgent*>(*neighbor);
+			// Calculate the future position of the agent using (x = xo + vt)
+			Util::Point futurePosition = neighborAgent->position() + neighborAgent->velocity * dt;
+
+			// Get agent name
+			std::string neighborName = neighborAgent->name;
+
+			// Check if the neighbor is one we need to pursue
+			if (seekTargetsSet.find(neighborName) != seekTargetsSet.end())
+			{
+				// Get the directional vector to the object we are pursuing
+				Util::Vector newDirection = futurePosition - position();
+
+				outputAcceleration += normalize(newDirection) * sf_max_speed - velocity();
+
+				totalPursue++;
+			}
+			
+		}
+	}
+	if (totalPursue > 0)
+		return outputAcceleration / (float)totalPursue;  // Average the total acceleration by the total of objects being pursued
+	else
+		return Util::Vector(0, 0, 0);
+}
+
+Util::Vector SocialForcesAgent::flee(float dt)
+{
+	std::set<SteerLib::SpatialDatabaseItemPtr> _neighbors;
+
+	int totalFlee = 0;
+
+	// Get neighboring radius
+	getSimulationEngine()->getSpatialDatabase()->getItemsInRange(_neighbors,
+		_position.x - (this->_radius + _SocialForcesParams.sf_query_radius),
+		_position.x + (this->_radius + _SocialForcesParams.sf_query_radius),
+		_position.z - (this->_radius + _SocialForcesParams.sf_query_radius),
+		_position.z + (this->_radius + _SocialForcesParams.sf_query_radius),
+		dynamic_cast<SteerLib::SpatialDatabaseItemPtr>(this));
+
+	Util::Vector outputAcceleration = Vector(0, 0, 0);
+
+	// Anticipate the target's future position and flee accordingly
+	std::set<SteerLib::SpatialDatabaseItemPtr>::iterator neighbor = _neighbors.begin();
+	for (; neighbor != _neighbors.end(); ++neighbor)
+	{
+		// Check if the neighbor within the radius is an agent
+		if ((*neighbor)->isAgent())
+		{
+			SocialForcesAgent* neighborAgent = dynamic_cast<SocialForcesAgent*>(*neighbor);
+			// Calculate the future position of the agent using (x = xo + vt)
+			Util::Point futurePosition = neighborAgent->position() + neighborAgent->velocity * dt;
+
+			// Get agent name
+			std::string neighborName = neighborAgent->name;
+
+			// Check if the neighbor is one we need to flee from
+			if (fleeTargetsSet.find(neighborName) != fleeTargetsSet.end())
+			{
+				Util::Vector newDirection = position() - futurePosition; // Find new direction to flee to
+
+				outputAcceleration += normalize(newDirection) * sf_max_speed - velocity();
+				totalFlee++;
+			}
+
+		}
+	}
+	if (totalFlee > 0)
+		return outputAcceleration / (float)totalFlee;
+	else
+		return Util::Vector(0, 0, 0);
+}
 
 void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNumber)
 {
@@ -819,12 +1029,13 @@ void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNu
 		alpha=0;
 	}
 
-	_velocity = (prefForce) + repulsionForce + proximityForce;
-	// _velocity = (prefForce);
-	// _velocity = velocity() + repulsionForce + proximityForce;
+	Util::Vector standardForces = prefForce + repulsionForce + proximityForce;
+	Util::Vector agentForces = pursue(dt) + flee(dt);
+	Util::Vector accel = standardForces + agentForces;
 
-	_velocity = clamp(velocity(), _SocialForcesParams.sf_max_speed);
-	_velocity.y=0.0f;
+	calcNextStep(dt, accel);  // Calculate the next velocity using the external and agent forces
+
+
 #ifdef _DEBUG_
 	std::cout << "agent" << id() << " speed is " << velocity().length() << std::endl;
 #endif

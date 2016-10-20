@@ -63,6 +63,9 @@ public:
 	// void insertAgentNeighbor(const SteerLib::AgentInterface * agent, float &rangeSq) {throw Util::GenericException("clearGoals() not implemented yet for SocialForcesAgent");}
 	// bool compareDist(SteerLib::AgentInterface * a1, SteerLib::AgentInterface * a2 );
 
+	std::string getName() { return name; }
+	void setName(std::string _name) { name = _name; }
+
 protected:
 	/// Updates position, velocity, and orientation of the agent, given the force and dt time step.
 	// void _doEulerStep(const Util::Vector & steeringDecisionForce, float dt);
@@ -96,8 +99,23 @@ private:
 	// void updateMidTermPath();
 	// bool hasLineOfSightTo(Util::Point point);
 
+	std::string name;
+	std::set<std::string> seekTargetsSet;
+	std::set<std::string> fleeTargetsSet;
 
-	void calcNextStep(float dt);
+	// ==============================
+	// Added helpers	
+	Util::Vector calculateExternalForce(float dt);
+	Util::Vector calculateIndivForce(float dt);
+	Util::Vector pursue(float dt);
+	Util::Vector flee(float dt);
+	void updateGoal();
+
+
+	// ==============================
+
+
+	void calcNextStep(float dt, Util::Vector accel);
 	Util::Vector calcRepulsionForce(float dt);
 	Util::Vector calcProximityForce(float dt);
 
