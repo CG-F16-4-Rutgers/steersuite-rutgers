@@ -233,72 +233,6 @@ void SocialForcesAgent::reset(const SteerLib::AgentInitialConditions & initialCo
 	assert(_radius != 0.0f);
 }
 
-// Computes all external forces such as wall, proximity, repulsion
-Util::Vector SocialForcesAgent::calculateExternalForce(float dt)
-{
-
-	// ========= Goal Forces ================
-	Util::Vector prefForce = Vector(0, 0, 0);
-
-	// Only have a preferred force to goal when there are still goals left to go to
-	if (_goalQueue.size() > 0) 
-	{
-		SteerLib::AgentGoalInfo goalInfo = _goalQueue.front();
-		Util::Vector goalDirection;
-
-		if (!_midTermPath.empty() && (!this->hasLineOfSightTo(goalInfo.targetLocation)))
-		{
-			if (reachedCurrentWaypoint())
-			{
-				this->updateMidTermPath();
-			}
-
-			this->updateLocalTarget();
-			goalDirection = normalize(_currentLocalTarget - position());
-		}
-
-		else 
-		{
-			prefForce = (((goalDirection * PERFERED_SPEED) - velocity()) / (_SocialForcesParams.sf_acceleration / dt)); //assumption here
-		}
-	}
-	// ======================================
-
-
-
-	// ========= Repulsion Forces ===========
-	Util::Vector repulsionForce = calcRepulsionForce(dt);
-	if ( repulsionForce.x != repulsionForce.x)
-	{
-		std::cout << "Found some nan" << std::endl;
-		repulsionForce = velocity();
-		// throw GenericException("SocialForces numerical issue");
-	}
-	// ======================================
-
-
-
-	// ======= Proximity Forces ==============
-	Util::Vector proximityForce = calcProximityForce(dt);
-// #define _DEBUG_ 1
-#ifdef _DEBUG_
-	std::cout << "agent" << id() << " repulsion force " << repulsionForce << std::endl;
-	std::cout << "agent" << id() << " proximity force " << proximityForce << std::endl;
-	std::cout << "agent" << id() << " pref force " << prefForce << std::endl;
-#endif
-	// _velocity = _newVelocity;
-	int alpha=1;
-	if ( repulsionForce.length() > 0.0)
-	{
-		alpha=0;
-	}
-	// ======================================
-
-
-	// Return cummulative forces acting on agent
-	return prefForce + repulsionForce + proximityForce;
-}
-
 
 std::pair<float, Util::Point> minimum_distance(Util::Point l1, Util::Point l2, Util::Point p)
 {
@@ -839,40 +773,11 @@ void SocialForcesAgent::computeNeighbors()
 	}
 }*/
 
-// Checks if there is another goal to head to
-void SocialForcesAgent::updateGoal()
-{
-	if (_goalQueue.size() <= 0)   // No goals in queue remaining
-	{
-		disable();
-		return;
-	}
-
-	SteerLib::AgentGoalInfo goalInfo = _goalQueue.front();
-
-	// Check if the goal is within the bounds or if goal is overlap withing the agent's current position
-	if ((goalInfo.targetLocation - position()).length < radius() * GOAL_THRESHOLD_MULTIPLIER
-		|| goalInfo.goalType == GOAL_THRESHOLD_MULTIPLIER
-		&& Util::boxOverlapsCircle2D(goalInfo.targetRegion.xmin, goalInfo.targetRegion.xmax, goalInfo.targetRegion.zmin, goalInfo.targetRegion.zmax, this->position(), this->radius))
-	{
-
-		_goalQueue.pop(); // Remove current goal
-
-		if (_goalQueue.size() > 0)
-		{
-			// Set agent to new goal with velocity as goal direction
-			Util::Vector goalDirection = _goalQueue.front().targetLocation - this->_position;
-			_prefVelocity = goalDirection;
-		}
-	}
-}
-
-
 // Computes all forces and calculates the next velocity via their accelerations
 void SocialForcesAgent::calcNextStep(float dt, Util::Vector accel)
 {
 	// Increment velocity
-	_velocity = velocity() + (accel * dt); // v = vo + at
+	_velocity = velocity() + accel;
 	_velocity = clamp(velocity(), _SocialForcesParams.sf_max_speed);
 	_velocity.y = 0.0f;
 }
@@ -902,7 +807,7 @@ Util::Vector SocialForcesAgent::pursue(float dt)
 		{
 			SocialForcesAgent* neighborAgent = dynamic_cast<SocialForcesAgent*>(*neighbor);
 			// Calculate the future position of the agent using (x = xo + vt)
-			Util::Point futurePosition = neighborAgent->position() + neighborAgent->velocity * dt;
+			Util::Point futurePosition = neighborAgent->position() + neighborAgent->velocity() * dt;
 
 			// Get agent name
 			std::string neighborName = neighborAgent->name;
@@ -951,7 +856,7 @@ Util::Vector SocialForcesAgent::flee(float dt)
 		{
 			SocialForcesAgent* neighborAgent = dynamic_cast<SocialForcesAgent*>(*neighbor);
 			// Calculate the future position of the agent using (x = xo + vt)
-			Util::Point futurePosition = neighborAgent->position() + neighborAgent->velocity * dt;
+			Util::Point futurePosition = neighborAgent->position() + neighborAgent->velocity() * dt;
 
 			// Get agent name
 			std::string neighborName = neighborAgent->name;
@@ -983,31 +888,38 @@ void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNu
 	}
 
 	Util::AxisAlignedBox oldBounds(_position.x - _radius, _position.x + _radius, 0.0f, 0.0f, _position.z - _radius, _position.z + _radius);
-
-	SteerLib::AgentGoalInfo goalInfo = _goalQueue.front();
+	
+	SteerLib::AgentGoalInfo goalInfo;
+	Util::Vector prefForce = Util::Vector(0, 0, 0);
 	Util::Vector goalDirection;
-	// std::cout << "midtermpath empty: " << _midTermPath.empty() << std::endl;
-	if ( ! _midTermPath.empty() && (!this->hasLineOfSightTo(goalInfo.targetLocation)) )
+
+	// Only apply goal related forces when there are goals for agent to head to
+	if (_goalQueue.size() > 0)
 	{
-		if (reachedCurrentWaypoint())
+		goalInfo = _goalQueue.front();
+		Util::Vector goalDirection;
+		// std::cout << "midtermpath empty: " << _midTermPath.empty() << std::endl;
+		if (!_midTermPath.empty() && (!this->hasLineOfSightTo(goalInfo.targetLocation)))
 		{
-			this->updateMidTermPath();
+			if (reachedCurrentWaypoint())
+			{
+				this->updateMidTermPath();
+			}
+
+			this->updateLocalTarget();
+
+			goalDirection = normalize(_currentLocalTarget - position());
+
 		}
-
-		this->updateLocalTarget();
-
-		goalDirection = normalize(_currentLocalTarget - position());
-
+		else
+		{
+			goalDirection = normalize(goalInfo.targetLocation - position());
+		}
+		// _prefVelocity = goalDirection * PERFERED_SPEED;
+		prefForce = (((goalDirection * PERFERED_SPEED) - velocity()) / (_SocialForcesParams.sf_acceleration / dt)); //assumption here
 	}
-	else
-	{
-		goalDirection = normalize(goalInfo.targetLocation - position());
-	}
-	// _prefVelocity = goalDirection * PERFERED_SPEED;
-	Util::Vector prefForce = (((goalDirection * PERFERED_SPEED) - velocity()) / (_SocialForcesParams.sf_acceleration/dt)); //assumption here
-	prefForce = prefForce + velocity();
-	// _velocity = prefForce;
-
+	
+	
 	Util::Vector repulsionForce = calcRepulsionForce(dt);
 	if ( repulsionForce.x != repulsionForce.x)
 	{
@@ -1015,6 +927,7 @@ void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNu
 		repulsionForce = velocity();
 		// throw GenericException("SocialForces numerical issue");
 	}
+
 	Util::Vector proximityForce = calcProximityForce(dt);
 // #define _DEBUG_ 1
 #ifdef _DEBUG_
@@ -1030,11 +943,12 @@ void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNu
 	}
 
 	Util::Vector standardForces = prefForce + repulsionForce + proximityForce;
-	Util::Vector agentForces = pursue(dt) + flee(dt);
-	Util::Vector accel = standardForces + agentForces;
+	Util::Vector behaviorForces = pursue(dt) + flee(dt);
 
+	float stdForceWeight = 1.0; // Weight of 1.0 seems to create the same behavior as the given videos
+	float behaviorForceWeight = 0.2;
+	Util::Vector accel = stdForceWeight*standardForces + behaviorForceWeight*behaviorForces;
 	calcNextStep(dt, accel);  // Calculate the next velocity using the external and agent forces
-
 
 #ifdef _DEBUG_
 	std::cout << "agent" << id() << " speed is " << velocity().length() << std::endl;

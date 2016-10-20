@@ -405,7 +405,7 @@ project "simpleAI"
 	 configuration { "linux" }
 		buildoptions("-std=c++0x -ggdb" )	
 	
-project "socialForcesAI"
+project "sfAI"
 	language "C++"
 	kind "SharedLib"
 	includedirs { 

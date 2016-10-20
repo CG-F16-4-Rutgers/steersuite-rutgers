@@ -105,13 +105,9 @@ private:
 
 	// ==============================
 	// Added helpers	
-	Util::Vector calculateExternalForce(float dt);
-	Util::Vector calculateIndivForce(float dt);
 	Util::Vector pursue(float dt);
 	Util::Vector flee(float dt);
-	void updateGoal();
-
-
+	
 	// ==============================
 
 
