@@ -105,9 +105,12 @@ private:
 
 	// ==============================
 	// Added helpers	
+	Util::Vector calcBehaviorForces(float dt);
+
 	Util::Vector pursue(float dt);
 	Util::Vector flee(float dt);
-	
+	Util::Vector collisionAvoidance(float dt);
+
 	// ==============================
 
 

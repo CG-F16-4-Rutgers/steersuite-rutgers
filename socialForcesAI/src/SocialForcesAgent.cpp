@@ -171,15 +171,27 @@ void SocialForcesAgent::reset(const SteerLib::AgentInitialConditions & initialCo
 				_goalQueue.push(initialConditions.goals[i]);
 			}
 		}
+
+		// Evade
 		else if (initialConditions.goals[i].goalType == SteerLib::GOAL_TYPE_FLEE_DYNAMIC_TARGET)
 		{
-			seekTargetsSet.insert(initialConditions.goals[i].targetName);
+			fleeTargetsSet.insert(initialConditions.goals[i].targetName);
 
 		}
+
+		// Pursue
 		else if (initialConditions.goals[i].goalType == SteerLib::GOAL_TYPE_SEEK_DYNAMIC_TARGET)
+		{
+			//std::cout << initialConditions.goals[i].targetName << std::endl;
+			seekTargetsSet.insert(initialConditions.goals[i].targetName);
+		}
+
+		// Object avoidance
+		else if (initialConditions.goals[i].goalType == SteerLib::GOAL_TYPE_FLEE_STATIC_TARGET)
 		{
 			fleeTargetsSet.insert(initialConditions.goals[i].targetName);
 		}
+
 		else 
 		{
 			throw Util::GenericException("Unsupported goal type; SocialForcesAgent only supports GOAL_TYPE_SEEK_STATIC_TARGET, GOAL_TYPE_SEEK_DYNAMIC_TARGET, GOAL_TYPE_FLEE_DYNAMIC_TARGET, and GOAL_TYPE_AXIS_ALIGNED_BOX_GOAL.");
@@ -224,7 +236,6 @@ void SocialForcesAgent::reset(const SteerLib::AgentInitialConditions & initialCo
 	std::cout << "goal direction is: " << goalDirection << " prefvelocity is: " << prefVelocity_ <<
 			" and current velocity is: " << velocity_ << std::endl;
 #endif
-
 
 	// std::cout << "Parameter spec: " << _SocialForcesParams << std::endl;
 	// _gEngine->addAgent(this, rvoModule);
@@ -777,8 +788,7 @@ void SocialForcesAgent::computeNeighbors()
 void SocialForcesAgent::calcNextStep(float dt, Util::Vector accel)
 {
 	// Increment velocity
-	_velocity = velocity() + accel;
-	_velocity = clamp(velocity(), _SocialForcesParams.sf_max_speed);
+	_velocity = clamp(velocity() + accel, _SocialForcesParams.sf_max_speed);
 	_velocity.y = 0.0f;
 }
 
@@ -790,15 +800,15 @@ Util::Vector SocialForcesAgent::pursue(float dt)
 
 	// Get neighboring radius
 	getSimulationEngine()->getSpatialDatabase()->getItemsInRange(_neighbors,
-		_position.x - (this->_radius + _SocialForcesParams.sf_query_radius),
-		_position.x + (this->_radius + _SocialForcesParams.sf_query_radius),
-		_position.z - (this->_radius + _SocialForcesParams.sf_query_radius),
-		_position.z + (this->_radius + _SocialForcesParams.sf_query_radius),
+		_position.x - (this->_radius + 100.0f), //_SocialForcesParams.sf_query_radius),
+		_position.x + (this->_radius + 100.0f), //_SocialForcesParams.sf_query_radius),
+		_position.z - (this->_radius + 100.0f), //_SocialForcesParams.sf_query_radius),
+		_position.z + (this->_radius + 100.0f), //_SocialForcesParams.sf_query_radius),
 		dynamic_cast<SteerLib::SpatialDatabaseItemPtr>(this));
 
 	Util::Vector outputAcceleration = Vector(0, 0, 0);
 
-	// Anticipate the target's future position and flee accordingly
+	// Anticipate the target's future position and pursue accordingly
 	std::set<SteerLib::SpatialDatabaseItemPtr>::iterator neighbor = _neighbors.begin();
 	for (; neighbor != _neighbors.end(); ++neighbor)
 	{
@@ -810,8 +820,7 @@ Util::Vector SocialForcesAgent::pursue(float dt)
 			Util::Point futurePosition = neighborAgent->position() + neighborAgent->velocity() * dt;
 
 			// Get agent name
-			std::string neighborName = neighborAgent->name;
-
+			std::string neighborName = neighborAgent->name;			
 			// Check if the neighbor is one we need to pursue
 			if (seekTargetsSet.find(neighborName) != seekTargetsSet.end())
 			{
@@ -839,10 +848,10 @@ Util::Vector SocialForcesAgent::flee(float dt)
 
 	// Get neighboring radius
 	getSimulationEngine()->getSpatialDatabase()->getItemsInRange(_neighbors,
-		_position.x - (this->_radius + _SocialForcesParams.sf_query_radius),
-		_position.x + (this->_radius + _SocialForcesParams.sf_query_radius),
-		_position.z - (this->_radius + _SocialForcesParams.sf_query_radius),
-		_position.z + (this->_radius + _SocialForcesParams.sf_query_radius),
+		_position.x - (this->_radius + 10.0f), //_SocialForcesParams.sf_query_radius),
+		_position.x + (this->_radius + 10.0f), //_SocialForcesParams.sf_query_radius),
+		_position.z - (this->_radius + 10.0f), //_SocialForcesParams.sf_query_radius),
+		_position.z + (this->_radius + 10.0f), //_SocialForcesParams.sf_query_radius),
 		dynamic_cast<SteerLib::SpatialDatabaseItemPtr>(this));
 
 	Util::Vector outputAcceleration = Vector(0, 0, 0);
@@ -866,7 +875,7 @@ Util::Vector SocialForcesAgent::flee(float dt)
 			{
 				Util::Vector newDirection = position() - futurePosition; // Find new direction to flee to
 
-				outputAcceleration += normalize(newDirection) * sf_max_speed - velocity();
+				outputAcceleration += normalize(newDirection) * sf_max_speed/2 - velocity();
 				totalFlee++;
 			}
 
@@ -876,6 +885,20 @@ Util::Vector SocialForcesAgent::flee(float dt)
 		return outputAcceleration / (float)totalFlee;
 	else
 		return Util::Vector(0, 0, 0);
+}
+
+// Agent will only avoid the object if the object is in its direct path
+Util::Vector SocialForcesAgent::collisionAvoidance(float dt)
+{
+	Util::Vector output;
+	return output;
+}
+
+Util::Vector SocialForcesAgent::calcBehaviorForces(float dt)
+{
+	
+	Util::Vector outputForce;	   
+	return outputForce;
 }
 
 void SocialForcesAgent::updateAI(float timeStamp, float dt, unsigned int frameNumber)
