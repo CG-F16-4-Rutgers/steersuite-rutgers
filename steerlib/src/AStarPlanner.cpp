@@ -67,6 +67,27 @@ namespace SteerLib
 		return p;
 	}
 
+	double AStarPlanner::euclidian_heuristic(Util::Point start, Util:Point end) {
+		//calculate variables for distance formula//
+		double e_x = (start.x - end.x)*(start.x - end.x);
+		double e_y = (start.y - end.y)*(start.y - end.y);
+		double e_x = (start.z - end.z)*(start.z - end.z);
+		double euclidian_distance = std::sqrt(e_x+e_y+e_z);
+		return euclidian_distance;
+	}
+
+	int AStarPlanner::minimumF(std::vector<AStarPlannerNode*> list) {
+		double min = 500000;
+		int position = -1;
+		for (int i = 0; i < list.size(); i++) {
+			if (list[i]-> <= min) {
+				min = list[i];
+				position = i;
+			}
+		}
+		return position;
+	}
+ 
 
 
 	bool AStarPlanner::computePath(std::vector<Util::Point>& agent_path,  Util::Point start, Util::Point goal, SteerLib::SpatialDataBaseInterface * _gSpatialDatabase, bool append_to_path)
@@ -79,3 +100,6 @@ namespace SteerLib
 		return false;
 	}
 }
+
+
+
