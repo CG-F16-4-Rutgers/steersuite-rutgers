@@ -57,16 +57,58 @@ namespace SteerLib
 			return false;
 		return true;
 	}
-
+	
 
 
 	Util::Point AStarPlanner::getPointFromGridIndex(int id)
 	{
 		Util::Point p;
+
 		gSpatialDatabase->getLocationFromIndex(id, p);
 		return p;
 	}
 
+	//Populates a list of neighbors only if a neighbor is valid//
+	bool AStarPlanner::AddNodeValid(AStarPlannerNode* origin, std::vector<AStarPlannerNode*>, Util::Point origin) {
+		int dbIndex = gSpatialDatabase->getCellIndexFromLocation(origin);
+
+		if (canBeTraversed(origin)) {
+			AStarPlannerNode* node = new AStarPlannerNode(point, double(0), double(0), double(0), origin);
+			neighbors.push_back(node);
+			return true;
+		}
+
+		return false;
+	}
+
+
+	std::vector<AStarPlannerNode*> AStarPlanner::getNeighbors(AStarPlannerNode* origin) {
+	/*  
+	
+		     	SIDE VIEW
+									
+	    x-1, z+1 | z+1 | x+1,z+1
+	    ----------------------		
+	       x-1   |  0  |   x+1 
+	    ----------------------      
+	     x-1,z-1 | z-1 | x+1,z-1     
+		
+																*/
+		std::vector<AStarPlannerNode*> neighbors;
+		
+	//starting from x axis left to right//
+		AddNodeValid(origin, neighbors, Util::Point(origin->point.x - 1, 0, origin->point.z + 1);
+		AddNodeValid(origin, neighbors, Util::Point(origin->point.x - 1, 0, origin->point.z);
+		AddNodeValid(origin, neighbors, Util::Point(origin->point.x - 1, 0, origin->point.z - 1);
+		AddNodeValid(origin, neighbors, Util::Point(origin->point.x, 0, origin->point.z + 1);
+		AddNodeValid(origin, neighbors, Util::Point(origin->point.x, 0, origin->point.z - 1);
+		AddNodeValid(origin, neighbors, Util::Point(origin->point.x + 1, 0, origin->point.z - 1);
+		AddNodeValid(origin, neighbors, Util::Point(origin->point.x + 1, 0, origin->point.z);
+		AddNodeValid(origin, neighbors, Util::Point(origin->point.x + 1, 0, origin->point.z + 1);
+	}
+
+
+	//Calculates Euclidian Distance//
 	double AStarPlanner::euclidian_heuristic(Util::Point start, Util:Point end) {
 		//calculate variables for distance formula//
 		double e_x = (start.x - end.x)*(start.x - end.x);
@@ -76,12 +118,13 @@ namespace SteerLib
 		return euclidian_distance;
 	}
 
-	int AStarPlanner::minimumF(std::vector<AStarPlannerNode*> list) {
-		double min = 500000;
+	//A function to identify the node with minimum f-value//
+	int AStarPlanner::minimumF(std::vector<AStarPlannerNode*> Directory) {
+		double min = 500000000;
 		int position = -1;
-		for (int i = 0; i < list.size(); i++) {
-			if (list[i]-> <= min) {
-				min = list[i];
+		for (int i = 0; i < Directory.size(); i++) {
+			if (Directory[i]-> <= min) {
+				min = Directory[i];
 				position = i;
 			}
 		}
