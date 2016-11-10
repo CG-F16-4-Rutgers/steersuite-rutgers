@@ -69,11 +69,11 @@ namespace SteerLib
 	}
 
 	//Populates a list of neighbors only if a neighbor is valid//
-	bool AStarPlanner::AddNodeValid(AStarPlannerNode* origin, std::vector<AStarPlannerNode*>, Util::Point origin) {
+	bool AStarPlanner::AddNodeValid(AStarPlannerNode* start, std::vector<AStarPlannerNode*>, Util::Point origin) {
 		int dbIndex = gSpatialDatabase->getCellIndexFromLocation(origin);
 
 		if (canBeTraversed(origin)) {
-			AStarPlannerNode* node = new AStarPlannerNode(point, double(0), double(0), double(0), origin);
+			AStarPlannerNode* node = new AStarPlannerNode(point, double(0), double(0), double(0), start);
 			neighbors.push_back(node);
 			return true;
 		}
