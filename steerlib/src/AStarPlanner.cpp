@@ -105,6 +105,8 @@ namespace SteerLib
 		AddNodeValid(origin, neighbors, Util::Point(origin->point.x + 1, 0, origin->point.z - 1);
 		AddNodeValid(origin, neighbors, Util::Point(origin->point.x + 1, 0, origin->point.z);
 		AddNodeValid(origin, neighbors, Util::Point(origin->point.x + 1, 0, origin->point.z + 1);
+
+		return neigbors;
 	}
 
 
