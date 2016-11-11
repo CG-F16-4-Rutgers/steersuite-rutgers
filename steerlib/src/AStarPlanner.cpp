@@ -132,8 +132,78 @@ namespace SteerLib
 		}
 		return position;
 	}
- 
 
+	std::vector<Util::Point> AStarPlanner::trace(AStarPlannerNode* node) {
+		std::vector<Util::Point> trace;
+		AStarPlannerNode* temp = node;
+		trace.push_back(temp -> point);
+		while (temp -> parent != NULL) {
+			temp = temp -> parent;
+			trace.push_back(temp -> point);
+		}
+		std::vector<Util::Point> traceTemp;
+		for (int i = 0; i < trace.size(); i++) {
+			
+			traceTemp.push_back(trace[trace.size() - 1 - i]);
+		}
+		return traceTemp;
+	}
+	
+	bool AStarPlanner::weightedAStar(std::vector<Util::Point>& agent_path,  Util::Point start, Util::Point goal, SteerLib::SpatialDataBaseInterface * _gSpatialDatabase, bool append_to_path) {
+		gSpatialDatabase = _gSpatialDatabase;
+
+		std::vector<AStarPlannerNode*> open_list;
+		std::vector<AStarPlannerNode*> closed_list;
+
+		AStarPlannerNode* root = new AStarPlannerNode(start, double(0), euclidean_heuristic(goal, start), euclidean_heuristic(goal, start), NULL);
+		open_list.push_back(root);
+
+		while (!open_list.empty()) {
+
+			int indexOfQ = indexWithLeastF(open_list);
+			AStarPlannerNode* q = open_list[indexOfQ];
+
+			open_list.erase(open_list.begin() + indexOfQ);
+
+			std::vector<AStarPlannerNode*> successors = getNeighbors(q);
+			
+			for (int i = 0; i < successors.size(); i++) {
+				if (successors[i] -> point == goal) {
+					agent_path = trace(successors[i]);
+					return true;
+				}
+
+				successors[i] -> g = q -> g + euclidean_heuristic(q -> point, successors[i] -> point);
+				
+				successors[i] -> h = euclidean_heuristic(goal, successors[i] -> point);
+
+				successors[i] -> f = successors[i] -> g + w*successors[i] -> h;
+
+
+				bool skip = false;
+				for (int j = 0; j < open_list.size(); j++) {
+					// open list
+					if (open_list[j] -> point == successors[i] -> point && open_list[j] -> f < successors[i] -> f) {
+						skip = true;
+					}
+				}
+
+				for (int j = 0; j < closed_list.size(); j++) {
+					// closed list
+					if (closed_list[j] -> point == successors[i] -> point && closed_list[j] -> f < successors[i] -> f) {
+						skip = true;
+					}
+				}
+
+				if (!skip) {
+					open_list.push_back(successors[i]);
+				}
+			}
+			closed_list.push_back(q);
+		}
+
+		return false;
+	}
 
 	bool AStarPlanner::computePath(std::vector<Util::Point>& agent_path,  Util::Point start, Util::Point goal, SteerLib::SpatialDataBaseInterface * _gSpatialDatabase, bool append_to_path)
 	{
@@ -145,6 +215,3 @@ namespace SteerLib
 		return false;
 	}
 }
-
-
-
