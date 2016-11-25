@@ -73,9 +73,9 @@ namespace SteerLib
 	bool AStarPlanner::AddNodeValid(AStarPlannerNode* start, std::vector<AStarPlannerNode*>, Util::Point origin) {
 		int dbIndex = gSpatialDatabase->getCellIndexFromLocation(origin);
 
-		if (canBeTraversed(origin)) {
-			AStarPlannerNode* node = new AStarPlannerNode(point, double(0), double(0), double(0), start);
-			neighbors.push_back(node);
+		if (canBeTraversed(dbIndex)) {
+			//AStarPlannerNode* node = new AStarPlannerNode(point, double(0), double(0), double(0), start);
+			//neighbors.push_back(node);
 			return true;
 		}
 
@@ -98,6 +98,7 @@ namespace SteerLib
 		std::vector<AStarPlannerNode*> neighbors;
 		
 	//starting from x axis left to right//
+		/*
 		AddNodeValid(origin, neighbors, Util::Point(origin->point.x - 1, 0, origin->point.z + 1);
 		AddNodeValid(origin, neighbors, Util::Point(origin->point.x - 1, 0, origin->point.z);
 		AddNodeValid(origin, neighbors, Util::Point(origin->point.x - 1, 0, origin->point.z - 1);
@@ -106,17 +107,18 @@ namespace SteerLib
 		AddNodeValid(origin, neighbors, Util::Point(origin->point.x + 1, 0, origin->point.z - 1);
 		AddNodeValid(origin, neighbors, Util::Point(origin->point.x + 1, 0, origin->point.z);
 		AddNodeValid(origin, neighbors, Util::Point(origin->point.x + 1, 0, origin->point.z + 1);
+		*/
 
-		return neigbors;
+		return neighbors;
 	}
 
 
 	//Calculates Euclidian Distance//
-	double AStarPlanner::euclidian_heuristic(Util::Point start, Util:Point end) {
+	double AStarPlanner::euclidian_heuristic(Util::Point start, Util::Point end) {
 		//calculate variables for distance formula//
 		double e_x = (start.x - end.x)*(start.x - end.x);
 		double e_y = (start.y - end.y)*(start.y - end.y);
-		double e_x = (start.z - end.z)*(start.z - end.z);
+		double e_z = (start.z - end.z)*(start.z - end.z);
 		double euclidian_distance = std::sqrt(e_x+e_y+e_z);
 		return euclidian_distance;
 	}
@@ -125,12 +127,14 @@ namespace SteerLib
 	int AStarPlanner::minimumF(std::vector<AStarPlannerNode*> Directory) {
 		double min = 500000000;
 		int position = -1;
+		/*
 		for (int i = 0; i < Directory.size(); i++) {
 			if (Directory[i]-> <= min) {
 				min = Directory[i];
 				position = i;
 			}
 		}
+		*/
 		return position;
 	}
 
@@ -156,10 +160,10 @@ namespace SteerLib
 		std::vector<AStarPlannerNode*> open_list;
 		std::vector<AStarPlannerNode*> closed_list;
 
-		AStarPlannerNode* root = new AStarPlannerNode(start, double(0), euclidean_heuristic(goal, start), euclidean_heuristic(goal, start), NULL);
-		open_list.push_back(root);
+		//AStarPlannerNode* root = new AStarPlannerNode(start, double(0), euclidian_heuristic(goal, start), euclidian_heuristic(goal, start), NULL);
+		//open_list.push_back(root);
 
-		while (!open_list.empty()) {
+		/*while (!open_list.empty()) {
 
 			int indexOfQ = indexWithLeastF(open_list);
 			AStarPlannerNode* q = open_list[indexOfQ];
@@ -174,11 +178,11 @@ namespace SteerLib
 					return true;
 				}
 
-				successors[i] -> g = q -> g + euclidean_heuristic(q -> point, successors[i] -> point);
+				successors[i] -> g = q -> g + euclidian_heuristic(q -> point, successors[i] -> point);
 				
-				successors[i] -> h = euclidean_heuristic(goal, successors[i] -> point);
+				successors[i] -> h = euclidian_heuristic(goal, successors[i] -> point);
 
-				successors[i] -> f = successors[i] -> g + w*successors[i] -> h;
+				//successors[i] -> f = successors[i] -> g + w*successors[i] -> h;
 
 
 				bool skip = false;
@@ -201,7 +205,7 @@ namespace SteerLib
 				}
 			}
 			closed_list.push_back(q);
-		}
+		}*/
 
 		return false;
 	}

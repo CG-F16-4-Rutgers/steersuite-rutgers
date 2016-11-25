@@ -32,6 +32,7 @@ namespace SteerLib
 		public:
 			double f;
 			double g;
+			double h;
 			Util::Point point;
 			AStarPlannerNode* parent;
 			AStarPlannerNode(Util::Point _point, double _g, double _f, AStarPlannerNode* _parent)
@@ -96,6 +97,12 @@ namespace SteerLib
 			*/
 
 			bool computePath(std::vector<Util::Point>& agent_path, Util::Point start, Util::Point goal, SteerLib::SpatialDataBaseInterface * _gSpatialDatabase, bool append_to_path = false);
+			bool AddNodeValid(AStarPlannerNode* start, std::vector<AStarPlannerNode*>, Util::Point origin);
+			std::vector<AStarPlannerNode*> getNeighbors(AStarPlannerNode* origin);
+			double euclidian_heuristic(Util::Point start, Util::Point end);
+			int minimumF(std::vector<AStarPlannerNode*> Directory);
+			std::vector<Util::Point> trace(AStarPlannerNode* node);
+			bool weightedAStar(std::vector<Util::Point>& agent_path, Util::Point start, Util::Point goal, SteerLib::SpatialDataBaseInterface * _gSpatialDatabase, bool append_to_path);
 		private:
 			SteerLib::SpatialDataBaseInterface * gSpatialDatabase;
 	};
