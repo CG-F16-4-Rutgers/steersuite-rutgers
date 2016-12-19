@@ -63,7 +63,6 @@ public:
 	// void insertAgentNeighbor(const SteerLib::AgentInterface * agent, float &rangeSq) {throw Util::GenericException("clearGoals() not implemented yet for SocialForcesAgent");}
 	// bool compareDist(SteerLib::AgentInterface * a1, SteerLib::AgentInterface * a2 );
 
-	// added by bingchen
 	Util::Color getColor() { return _color; }
 	Util::Vector last_direction;
 	Util::Point final_location;
