@@ -51,6 +51,13 @@ namespace SocialForcesGlobals
 	float sf_wall_a;
 	float sf_max_speed;
 
+	//Additional declerations//
+	float c_replusion;
+	float c_prox;
+	float c_queue;
+	float c_order_frame;
+	float c_cp_radius;
+	float c_prefer_speed;
 
 	PhaseProfilers * gPhaseProfilers;
 }
